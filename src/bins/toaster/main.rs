@@ -1,75 +1,41 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[path = "../../wstring.rs"]
+mod wstring;
+#[path = "../../com_helper.rs"]
+mod com_helper;
+
 use windows::Interface;
 use windows::{
     data::xml::dom::XmlDocument,
-    ui::notifications::{ToastNotification, ToastNotificationManager, ToastTemplateType},
+    ui::notifications::{ToastNotification, ToastNotificationManager},
 };
 use winrt::windows;
 use wstring::WideString;
+use com_helper::InitCom;
 
-use std::env;
-
-const XML_TEMPLATE: &str = r#"
-<toast>
-  <visual>
-    <binding template="ToastImageAndText02">
-      <image id="1" src="assets\lame_sun.png" />
-      <text id="1"></text>
-      <text id="2"></text>
-    </binding>
-  </visual>
-  <audio src="ms-winsoundevent:Notification.Default" />
-</toast>
-"#;
-
-/// Helper struct, to help with CoInitialize and CoUnitialize of COM.
-struct InitCom();
-
-impl InitCom {
-    #![allow(dead_code)]
-    /// Single-Threaded Application.
-    fn sta() -> windows::Result<Self> {
-        if let Err(err) = windows::initialize_sta() {
-            Err(err)
-        } else {
-            Ok(Self())
-        }
-    }
-
-    /// Multi-Threaded Application.
-    fn mta() -> windows::Result<Self> {
-        if let Err(err) = windows::initialize_mta() {
-            Err(err)
-        } else {
-            Ok(Self())
-        }
-    }
-}
-
-impl Drop for InitCom {
-    fn drop(&mut self) {
-        use windows::win32::com::CoUninitialize;
-
-        unsafe {
-            CoUninitialize();
-        }
-    }
-}
+use std::{env, path::Path};
+const LAME_SUN: &[u8] = include_bytes!("../../../assets/lame_sun.png");
 
 fn start() -> windows::Result<()> {
     let _com = InitCom::sta()?;
     let current_file = get_exe_path();
+    let mut shortcut = env::var("APPDATA").unwrap();
+    shortcut.push_str(r"\Microsoft\Windows\Start Menu\Programs\Toaster.lnk");
 
-    if create_reg_keys(&current_file) && create_shortcut(&current_file)? {
-        let notification = construct_notification()?;
+    let mut image_path = env::var("TEMP").unwrap();
+    image_path.push_str("toast_default.png");
+
+    if create_shortcut(&current_file, &shortcut)? && create_reg_keys(&current_file) {
+        let notification = construct_notification(Some(&image_path))?;
+        
         ToastNotificationManager::history()?.clear_with_id(current_file.clone())?;
 
         ToastNotificationManager::get_default()?
             .create_toast_notifier_with_id(current_file)?
             .show(notification)?;
-
         std::thread::sleep(std::time::Duration::from_millis(10));
+
     } else {
         eprintln!("Failed to create registry keys for: {}", &current_file);
     }
@@ -124,31 +90,50 @@ fn create_reg_keys(file: &str) -> bool {
     result
 }
 
-fn construct_notification() -> windows::Result<ToastNotification> {
-    let mut args = env::args();
-    let text01 = args.nth(1).unwrap_or("Hello!".to_string());
-    let text02 = args.nth(2).unwrap_or_default();
+fn construct_notification(image_path: Option<&str>) -> windows::Result<ToastNotification> {
+    use std::fs;
+    let mut image_tag = String::new();
+    
+    if let Some(image_path) = image_path {
+        fs::write(image_path, LAME_SUN).unwrap_or_else(|_err| {
+            eprintln!("Failed to save template image as {}", image_path);
+        });
+
+        if Path::new(image_path).exists() {
+            image_tag = format!("<image placement=\"appLogoOverride\" hint-crop=\"none\" src=\"{}\"/>", image_path);
+        }
+    }    
+
+    let args: Vec<String> = env::args().collect();
+    let text01 = match args.get(1) {
+        Some(s) => s.as_str(),
+        None => "Hello!",
+    };
+    let text02 = match args.get(2) {
+        Some(s) => s.as_str(),
+        None => ""
+    };
 
     let notification = {
         let xml = XmlDocument::new()?;
-        xml.load_xml(XML_TEMPLATE)?;
+println!("{:?}", LAME_SUN);
+        let xml_text = format!(
+            r#"
+<toast scenario="reminder" launch="developer-pre-defined-string">
+  <visual>
+    <binding template="ToastGeneric">
+      {}
+      <text>{}</text>
+      <text>{}</text>
+      
+      <text placement="attribution">{}</text>
+    </binding>
+  </visual>
+  <audio src= "ms-winsoundevent:Notification.Default"/>
+</toast>"#, 
+        image_tag, text01, text02, "");
 
-        let binding = xml.get_elements_by_tag_name("binding")?.item(0)?;
-
-        let text_nodes = xml.get_elements_by_tag_name("text")?;
-        let node1 = text_nodes.item(0)?;
-        let node2 = text_nodes.item(1)?;
-
-        node1.set_inner_text(text01)?;
-        binding.append_child(node1)?;
-
-        node2.set_inner_text(text02)?;
-        binding.append_child(node2)?;
-
-        let root = xml.get_elements_by_tag_name("toast")?.item(0)?;
-        let audio = xml.create_element("audio")?;
-        audio.set_attribute("src", "ms-winsoundevent:Notification.Default")?;
-        root.append_child(audio)?;
+        xml.load_xml(xml_text)?;
 
         println!("{}", xml.get_xml()?);
 
@@ -158,7 +143,7 @@ fn construct_notification() -> windows::Result<ToastNotification> {
     Ok(notification)
 }
 
-fn create_shortcut(file: &str) -> windows::Result<bool> {
+fn create_shortcut(file: &str, shortcut: &str) -> windows::Result<bool> {
     use std::ptr::null;
     use windows::win32::com::IPersistFile;
     use windows::win32::shell::{IShellLinkW, ShellLink};
@@ -167,15 +152,19 @@ fn create_shortcut(file: &str) -> windows::Result<bool> {
 
     if let Ok(shell_link) = windows::create_instance::<IShellLinkW>(&ShellLink) {
         let file_path = WideString::from_str(file);
+        let folder = WideString::from_str(Path::new(file).parent().unwrap().to_str().unwrap());
 
         unsafe {
             let ok1 = shell_link.SetPath(file_path.ptr()).is_ok();
-            let ok2 = shell_link.SetDescription(null()).is_ok();
+            // let ok2 = shell_link.SetDescription(null()).is_ok();
+            let ok3 = shell_link.SetWorkingDirectory(folder.ptr()).is_ok();
+            // let ok4 = shell_link.SetIconLocation(psz_icon_path, i_icon)
 
-            if ok1 && ok2 {
+            if ok1 {
                 if let Ok(persist_file) = shell_link.cast::<IPersistFile>() {
+
                     let mut shortcut_name = WideString::from_str_with_size(
-                        r"E:\Projects\Rust\mini-tools\test.lnk",
+                        &shortcut,
                         256,
                     );
 
@@ -219,9 +208,11 @@ mod tests {
     #[test]
     fn test_reg() {
         let _com = InitCom::sta().unwrap();
+        let mut shortcut = env::var("APPDATA").unwrap();
+        shortcut.push_str(r"\Microsoft\Windows\Start Menu\Programs\Toaster.lnk");
         let exe_path = get_exe_path();
         let reg_status = create_reg_keys(&exe_path);
-        let lnk_status = create_shortcut(&exe_path).unwrap();
+        let lnk_status = create_shortcut(&exe_path, &shortcut).unwrap();
 
         dbg!(exe_path);
         dbg!(reg_status);
