@@ -18,6 +18,7 @@ lto = true
 codegen-units = 1
 
 [dependencies]
-winrt = { path = "./bindings" }
+windows = "0.4.0"
+bindings = { path = "./bindings" }
 clap = { version = "2.33.3", default-features = false, features = ["suggestions", "vec_map"] }
 #wstring = { path = "./bindings/wstring" }

@@ -1,4 +1,3 @@
-use winrt::windows;
 /// Helper struct, to help with CoInitialize and CoUnitialize of COM.
 pub struct InitCom();
 
@@ -25,7 +24,7 @@ impl InitCom {
 
 impl Drop for InitCom {
     fn drop(&mut self) {
-        use windows::win32::com::CoUninitialize;
+        use bindings::windows::win32::com::CoUninitialize;
 
         unsafe {
             CoUninitialize();

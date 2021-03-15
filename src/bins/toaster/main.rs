@@ -5,15 +5,14 @@ mod com_helper;
 #[path = "../../wstring.rs"]
 mod wstring;
 
-use clap::ArgMatches;
-use com_helper::InitCom;
-use windows::win32::system_services::LSTATUS;
-use windows::Interface;
-use windows::{
+use bindings::windows::win32::system_services::{BOOL, LSTATUS, PSTR, PWSTR};
+use bindings::windows::{
     data::xml::dom::XmlDocument,
     ui::notifications::{ToastNotification, ToastNotificationManager},
 };
-use winrt::windows;
+use clap::ArgMatches;
+use com_helper::InitCom;
+use windows::Interface;
 use wstring::WideString;
 
 use std::{env, path::Path};
@@ -53,13 +52,15 @@ fn start(input: &clap::ArgMatches) -> windows::Result<()> {
 }
 
 fn create_reg_keys(file: &str) -> bool {
+    use bindings::windows::win32::windows_programming::{
+        RegCloseKey, RegCreateKeyExW, RegSetValueExA, HKEY,
+    };
     use std::{mem::transmute, ptr::null_mut};
-    use windows::win32::windows_programming::{RegCloseKey, RegCreateKeyExW, RegSetValueExA, HKEY};
 
     let mut result = false;
     let current_user = HKEY(0x80000001);
     let reg_value = 1_u32;
-    let subkey = {
+    let mut subkey = {
         let path = format!(
             r"SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\{}",
             file
@@ -72,9 +73,9 @@ fn create_reg_keys(file: &str) -> bool {
         // Might need before hand? https://docs.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regopencurrentuser
         if RegCreateKeyExW(
             current_user,
-            subkey.ptr(),
+            PWSTR(subkey.mut_ptr()),
             0,
-            null_mut(),
+            PWSTR(null_mut()),
             0,
             0xF003F,
             null_mut(),
@@ -82,9 +83,10 @@ fn create_reg_keys(file: &str) -> bool {
             null_mut(),
         ) == ERROR_SUCCESS
         {
+            let mut property = b"ShowInActionCenter\0".to_vec();
             result = RegSetValueExA(
                 hkey,
-                b"ShowInActionCenter\0".as_ptr().cast(),
+                PSTR(property.as_mut_ptr().cast()),
                 0,
                 4,
                 transmute(&reg_value),
@@ -173,18 +175,20 @@ fn get_cli_inputs() -> clap::ArgMatches<'static> {
 }
 
 fn create_shortcut(file: &str, shortcut: &str) -> windows::Result<bool> {
-    use windows::win32::com::IPersistFile;
-    use windows::win32::shell::{IShellLinkW, ShellLink};
+    use bindings::windows::win32::com::IPersistFile;
+    use bindings::windows::win32::shell::{IShellLinkW, ShellLink};
 
     let mut result = false;
 
     if let Ok(shell_link) = windows::create_instance::<IShellLinkW>(&ShellLink) {
-        let file_path = WideString::from_str(file);
-        let folder = WideString::from_str(Path::new(file).parent().unwrap().to_str().unwrap());
+        let mut file_path = WideString::from_str(file);
+        let mut folder = WideString::from_str(Path::new(file).parent().unwrap().to_str().unwrap());
 
         unsafe {
-            let ok1 = shell_link.SetPath(file_path.ptr()).is_ok();
-            let ok2 = shell_link.SetWorkingDirectory(folder.ptr()).is_ok();
+            let ok1 = shell_link.SetPath(PWSTR(file_path.mut_ptr())).is_ok();
+            let ok2 = shell_link
+                .SetWorkingDirectory(PWSTR(folder.mut_ptr()))
+                .is_ok();
             // let ok3 = shell_link.SetIconLocation(psz_icon_path, i_icon)
 
             if ok1 && ok2 {
@@ -193,7 +197,7 @@ fn create_shortcut(file: &str, shortcut: &str) -> windows::Result<bool> {
                     let mut shortcut_name = WideString::from_str_with_size(&shortcut, 256);
 
                     result = persist_file
-                        .Save(shortcut_name.mut_ptr(), true.into())
+                        .Save(PWSTR(shortcut_name.mut_ptr()), BOOL(1))
                         .is_ok();
                 }
             }
