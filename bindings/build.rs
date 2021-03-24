@@ -6,6 +6,6 @@ fn main() {
         windows::win32::shell::{IShellLinkW, ShellLink},
         windows::win32::com::{CoCreateInstance, CoUninitialize, IPersistFile},
         windows::win32::file_system::GetFullPathNameW,
-        windows::win32::system_services::{BOOL, LSTATUS, PSTR, PWSTR}
+        windows::win32::system_services::{BOOL, LSTATUS, PSTR, PWSTR, GetStartupInfoW}
     );
 }

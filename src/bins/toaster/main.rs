@@ -104,42 +104,47 @@ fn construct_notification(input: &ArgMatches) -> windows::Result<ToastNotificati
     use std::fs;
     let image_tag;
 
-    if let Some(image_path) = input.value_of("IconPath") {
-        if Path::new(image_path).exists() {
+    if let Some(xml_file) = input.value_of("File") {
+        let xml = XmlDocument::new()?;
+        xml.load_xml(fs::read_to_string(xml_file).unwrap_or("<Toast></Toast>".to_owned()))?;
+        ToastNotification::create_toast_notification(xml)
+    } else {
+        if let Some(image_path) = input.value_of("IconPath") {
+            if Path::new(image_path).is_file() {
+                image_tag = format!(
+                    "<image placement=\"appLogoOverride\" hint-crop=\"none\" src=\"{}\"/>",
+                    image_path
+                );
+            } else {
+                image_tag = String::new();
+            }
+        } else {
+            let mut defualt_image_path = env::var("TEMP").unwrap();
+            defualt_image_path.push_str("toast_default.png");
+
+            fs::write(&defualt_image_path, LAME_SUN).unwrap_or_else(|_err| {
+                eprintln!("Failed to save template image as {}", &defualt_image_path);
+            });
+
             image_tag = format!(
                 "<image placement=\"appLogoOverride\" hint-crop=\"none\" src=\"{}\"/>",
-                image_path
+                defualt_image_path
             );
-        } else {
-            image_tag = String::new();
         }
-    } else {
-        let mut defualt_image_path = env::var("TEMP").unwrap();
-        defualt_image_path.push_str("toast_default.png");
 
-        fs::write(&defualt_image_path, LAME_SUN).unwrap_or_else(|_err| {
-            eprintln!("Failed to save template image as {}", &defualt_image_path);
-        });
+        let text01 = match input.value_of("Headline") {
+            Some(s) => s,
+            None => "Hello!",
+        };
+        let text02 = match input.value_of("Text") {
+            Some(s) => s,
+            None => "",
+        };
 
-        image_tag = format!(
-            "<image placement=\"appLogoOverride\" hint-crop=\"none\" src=\"{}\"/>",
-            defualt_image_path
-        );
-    }
-
-    let text01 = match input.value_of("Headline") {
-        Some(s) => s,
-        None => "Hello!",
-    };
-    let text02 = match input.value_of("Text") {
-        Some(s) => s,
-        None => "",
-    };
-
-    let notification = {
-        let xml = XmlDocument::new()?;
-        let xml_text = format!(
-            r#"
+        let notification = {
+            let xml = XmlDocument::new()?;
+            let xml_text = format!(
+                r#"
 <toast scenario="reminder" launch="developer-pre-defined-string">
   <visual>
     <binding template="ToastGeneric">
@@ -151,14 +156,14 @@ fn construct_notification(input: &ArgMatches) -> windows::Result<ToastNotificati
   </visual>
   <audio src= "ms-winsoundevent:Notification.Default"/>
 </toast>"#,
-            image_tag, text01, text02, ""
-        );
+                image_tag, text01, text02, ""
+            );
 
-        xml.load_xml(xml_text)?;
-        ToastNotification::create_toast_notification(xml)
-    };
-
-    notification
+            xml.load_xml(xml_text)?;
+            ToastNotification::create_toast_notification(xml)
+        };
+        notification
+    }
 }
 
 fn get_cli_inputs() -> clap::ArgMatches<'static> {
