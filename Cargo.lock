@@ -60,12 +60,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "squote"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fccf17fd09e2455ea796d2ad267b64fa2c5cbd8701b2a93b555d2aa73449f7d"
-
-[[package]]
 name = "strsim"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -111,9 +105,9 @@ checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "windows"
-version = "0.4.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "015de964f21e0b20b9744ebc6f3a3e4dfdd1788f133a4aeec09c035748f88a21"
+checksum = "2e50fd72a86bac7e21de2ce132629b7921e57b75ed607025f850a97a7ce2aec3"
 dependencies = [
  "const-sha1",
  "windows_gen",
@@ -122,37 +116,19 @@ dependencies = [
 
 [[package]]
 name = "windows_gen"
-version = "0.4.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70028758c92f5ed61ce12ab8e7482dce152418bac41dbefe794511b9fb673022"
+checksum = "b41030a241566acc784e1883355aebf4fb87bae609682a613ce62bf7639d5ec5"
 dependencies = [
- "proc-macro2",
- "quote",
- "squote",
- "syn",
- "windows_gen_macros",
-]
-
-[[package]]
-name = "windows_gen_macros"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a4e4aa3c108fc3112bb797662b14958d088d3b989f2560d89335775c566c88d"
-dependencies = [
- "proc-macro2",
- "quote",
  "syn",
 ]
 
 [[package]]
 name = "windows_macros"
-version = "0.4.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87e5b872245607ec18bf35eaa7a6146831c07449c0b724afd7403d732c6da856"
+checksum = "25eb153f12764a88cd8f6898ba9b4b03b57704b26289a15c66495923d23e4208"
 dependencies = [
- "proc-macro2",
- "quote",
- "squote",
  "syn",
  "windows_gen",
 ]

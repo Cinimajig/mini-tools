@@ -5,10 +5,13 @@ mod com_helper;
 #[path = "../../wstring.rs"]
 mod wstring;
 
-use bindings::windows::win32::system_services::{BOOL, LSTATUS, PSTR, PWSTR};
-use bindings::windows::{
-    data::xml::dom::XmlDocument,
-    ui::notifications::{ToastNotification, ToastNotificationManager},
+use bindings::Windows::Win32::{
+    SystemServices::{BOOL, LSTATUS, PSTR, PWSTR},
+    WindowsProgramming::{REG_OPEN_CREATE_OPTIONS, REG_SAM_FLAGS, REG_VALUE_TYPE},
+};
+use bindings::Windows::{
+    Data::Xml::Dom::XmlDocument,
+    UI::Notifications::{ToastNotification, ToastNotificationManager},
 };
 use clap::ArgMatches;
 use com_helper::InitCom;
@@ -39,11 +42,11 @@ fn start(input: &clap::ArgMatches) -> windows::Result<()> {
     if create_reg_keys(&current_file) {
         let notification = construct_notification(input)?;
 
-        ToastNotificationManager::history()?.clear_with_id(current_file.clone())?;
+        ToastNotificationManager::History()?.ClearWithId(current_file.clone())?;
 
-        ToastNotificationManager::get_default()?
-            .create_toast_notifier_with_id(current_file)?
-            .show(notification)?;
+        ToastNotificationManager::GetDefault()?
+            .CreateToastNotifierWithId(current_file)?
+            .Show(notification)?;
         std::thread::sleep(std::time::Duration::from_millis(10));
     } else {
         eprintln!("Failed to create registry keys for: {}", &current_file);
@@ -53,7 +56,7 @@ fn start(input: &clap::ArgMatches) -> windows::Result<()> {
 }
 
 fn create_reg_keys(file: &str) -> bool {
-    use bindings::windows::win32::windows_programming::{
+    use bindings::Windows::Win32::WindowsProgramming::{
         RegCloseKey, RegCreateKeyExW, RegSetValueExA, HKEY,
     };
     use std::{mem::transmute, ptr::null_mut};
@@ -77,8 +80,8 @@ fn create_reg_keys(file: &str) -> bool {
             PWSTR(subkey.mut_ptr()),
             0,
             PWSTR(null_mut()),
-            0,
-            0xF003F,
+            REG_OPEN_CREATE_OPTIONS::REG_OPTION_RESERVED,
+            REG_SAM_FLAGS::KEY_ALL_ACCESS,
             null_mut(),
             &mut hkey,
             null_mut(),
@@ -89,7 +92,7 @@ fn create_reg_keys(file: &str) -> bool {
                 hkey,
                 PSTR(property.as_mut_ptr().cast()),
                 0,
-                4,
+                REG_VALUE_TYPE::REG_DWORD,
                 transmute(&reg_value),
                 4,
             ) == ERROR_SUCCESS;
@@ -106,8 +109,8 @@ fn construct_notification(input: &ArgMatches) -> windows::Result<ToastNotificati
 
     if let Some(xml_file) = input.value_of("File") {
         let xml = XmlDocument::new()?;
-        xml.load_xml(fs::read_to_string(xml_file).unwrap_or("<Toast></Toast>".to_owned()))?;
-        ToastNotification::create_toast_notification(xml)
+        xml.LoadXml(fs::read_to_string(xml_file).unwrap_or("<Toast></Toast>".to_owned()))?;
+        ToastNotification::CreateToastNotification(xml)
     } else {
         if let Some(image_path) = input.value_of("IconPath") {
             if Path::new(image_path).is_file() {
@@ -159,8 +162,8 @@ fn construct_notification(input: &ArgMatches) -> windows::Result<ToastNotificati
                 image_tag, text01, text02, ""
             );
 
-            xml.load_xml(xml_text)?;
-            ToastNotification::create_toast_notification(xml)
+            xml.LoadXml(xml_text)?;
+            ToastNotification::CreateToastNotification(xml)
         };
         notification
     }
@@ -181,8 +184,8 @@ fn get_cli_inputs() -> clap::ArgMatches<'static> {
 }
 
 fn create_shortcut(file: &str, shortcut: &str) -> windows::Result<bool> {
-    use bindings::windows::win32::com::IPersistFile;
-    use bindings::windows::win32::shell::{IShellLinkW, ShellLink};
+    use bindings::Windows::Win32::Com::IPersistFile;
+    use bindings::Windows::Win32::Shell::{IShellLinkW, ShellLink};
 
     let mut result = false;
 
@@ -215,7 +218,7 @@ fn create_shortcut(file: &str, shortcut: &str) -> windows::Result<bool> {
 
 /// Gets the filepath for the current executable
 /// from std::env::current_exe.
-/// If that fails, it assumes the first aurgument
+/// If that fails, it assumes the first argument
 /// of std::env::args is the current exe.
 fn get_exe_path() -> String {
     match env::current_exe() {

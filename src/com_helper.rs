@@ -24,10 +24,8 @@ impl InitCom {
 
 impl Drop for InitCom {
     fn drop(&mut self) {
-        use bindings::windows::win32::com::CoUninitialize;
-
         unsafe {
-            CoUninitialize();
+            bindings::Windows::Win32::Com::CoUninitialize();
         }
     }
 }

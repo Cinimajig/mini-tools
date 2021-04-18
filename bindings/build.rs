@@ -1,11 +1,11 @@
 fn main() {
     windows::build!(
-        windows::ui::notifications::*,
-        windows::data::xml::dom::XmlDocument,
-        windows::win32::windows_programming::{RegOpenKeyExW, RegSetValueExA, RegSetValueExW, RegCloseKey, HKEY, RegCreateKeyExW},
-        windows::win32::shell::{IShellLinkW, ShellLink},
-        windows::win32::com::{CoCreateInstance, CoUninitialize, IPersistFile},
-        windows::win32::file_system::GetFullPathNameW,
-        windows::win32::system_services::{BOOL, LSTATUS, PSTR, PWSTR, GetStartupInfoW}
+        Windows::UI::Notifications::*,
+        Windows::Data::Xml::Dom::XmlDocument,
+        Windows::Win32::WindowsProgramming::{REG_OPEN_CREATE_OPTIONS, REG_SAM_FLAGS, REG_VALUE_TYPE, RegOpenKeyExW, RegSetValueExA, RegSetValueExW, RegCloseKey, HKEY, RegCreateKeyExW},
+        Windows::Win32::Shell::{IShellLinkW, ShellLink},
+        Windows::Win32::Com::{CoCreateInstance, CoUninitialize, IPersistFile},
+        Windows::Win32::FileSystem::GetFullPathNameW,
+        Windows::Win32::SystemServices::{BOOL, LSTATUS, PSTR, PWSTR, GetStartupInfoW}
     );
 }
